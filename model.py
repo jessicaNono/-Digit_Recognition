@@ -2,18 +2,24 @@ import torch
 
 import torch.nn as nn
 import torch.nn.functional as F
+import torch.optim as optim
+import torchvision
+from torchvision import datasets, transforms
 
 class SimpleNN(nn.Module):
     def __init__(self):
         super(SimpleNN, self).__init__()
-        # Define layers
-        self.fc1 = nn.Linear(in_features=784, out_features=128)  # 784 inputs to 128 outputs
-        self.fc2 = nn.Linear(128, 64)  # 128 inputs to 64 outputs
-        self.fc3 = nn.Linear(64, 10)   # 64 inputs to 10 outputs (for 10 classes)
+        self.conv1 = nn.Conv2d(1, 10, kernel_size=5)
+        self.conv2 = nn.Conv2d(10, 20, kernel_size=5)
+        self.conv2_drop = nn.Dropout2d()
+        self.fc1 = nn.Linear(320, 50)
+        self.fc2 = nn.Linear(50, 10)
 
     def forward(self, x):
-        # Define forward pass
-        x = F.relu(self.fc1(x))  # Apply ReLU to layer 1
-        x = F.relu(self.fc2(x))  # Apply ReLU to layer 2
-        x = self.fc3(x)          # Output layer
-        return F.log_softmax(x, dim=1)  # Apply log softmax to the outputs
+        x = F.relu(F.max_pool2d(self.conv1(x), 2))
+        x = F.relu(F.max_pool2d(self.conv2_drop(self.conv2(x)), 2))
+        x = x.view(-1, 320)
+        x = F.relu(self.fc1(x))
+        x = F.dropout(x, training=self.training)
+        x = self.fc2(x)
+        return F.log_softmax(x, dim=1)
