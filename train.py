@@ -121,3 +121,7 @@ def continueTrain():
         train(i)
         test()
 
+
+#firstTrain()
+
+continueTrain()
