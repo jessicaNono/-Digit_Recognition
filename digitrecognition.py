@@ -41,9 +41,7 @@ class DigitRecognizerApp:
         self.predict_button = tk.Button(master, text="Predict", command=self.predict_digit)
         self.predict_button.pack()
 
-        self.correct_button = tk.Button(master, text="Correct", command=self.correct_prediction)
-        self.correct_button.pack()
-
+  
         self.canvas.bind("<B1-Motion>", self.paint)
 
         self.image = PIL.Image.new("L", (200, 200), self.bg_color)
@@ -83,40 +81,6 @@ class DigitRecognizerApp:
             _, self.predicted = torch.max(outputs, 1)
             print(f'Predicted Digit: {self.predicted.item()}')
 
-    def correct_prediction(self):
-        if self.predicted is not None:  # Ensure there was a prediction
-            correct_label = simpledialog.askinteger("Input", "What is the correct digit?", parent=self.master,
-                                                    minvalue=0, maxvalue=9)
-            print(correct_label)
-            print(self.predicted.item())
-            if correct_label is not None and correct_label != self.predicted.item():
-                # Convert canvas content to an image for correction
-                img = self.image.resize((28, 28), Image.LANCZOS).convert('L')
-                img_inverted = ImageOps.invert(img)  # Invert colors if necessary to match training data
-
-                # Convert image to tensor for correction
-                img_tensor = transforms.ToTensor()(img_inverted)
-                img_tensor = transforms.Normalize((0.1307,), (0.3081,))(img_tensor)
-                img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
-
-                correct_label_tensor = torch.tensor([correct_label], dtype=torch.long)
-
-                # Perform correction
-                self.model.train()  # Switch to training mode
-                self.optimizer.zero_grad()  # Clear previous gradients
-                outputs = self.model(img_tensor)
-                loss = F.nll_loss(outputs, correct_label_tensor)  # Ensure loss function is consistent with training
-                loss.backward()  # Backpropagate the error
-                self.optimizer.step()  # Adjust model parameters
-                self.model.eval()  # Switch back to evaluation mode
-
-                # Save the updated model
-                torch.save(self.model.state_dict(), 'results/mnist_model.pth')
-                print(f"Model updated with correction: {correct_label}")
-            else:
-                print("No correction needed or provided.")
-        else:
-            print("No prediction has been made yet.")
 
 
 root = tk.Tk()

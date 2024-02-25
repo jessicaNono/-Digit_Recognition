@@ -5,7 +5,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from model import SimpleNN
 
-n_epochs = 7
+n_epochs = 10
 batch_size_train = 64
 batch_size_test = 1000
 learning_rate = 0.01
@@ -120,6 +120,6 @@ def continueTrain():
         test()
 
 
-#firstTrain()
+firstTrain()
 
 continueTrain()
