@@ -25,6 +25,12 @@ transform = torchvision.transforms.Compose([
 network = SimpleNN()
 optimizer = optim.SGD(network.parameters(), lr=learning_rate,
                       momentum=momentum)
+
+# Load the pre-trained model
+model_path = 'results/mnist_model.pth'  # Update this path
+network.load_state_dict(torch.load(model_path))
+network.eval()  # Set the network to evaluation mode
+
 # Download and load test data
 testset = torchvision.datasets.MNIST('mnist_data/', download=True, train=False, transform=transform)
 test_loader = torch.utils.data.DataLoader(testset, batch_size=batch_size_test, shuffle=True)

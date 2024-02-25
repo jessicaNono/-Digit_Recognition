@@ -107,15 +107,13 @@ def firstTrain():
 
 
 def continueTrain():
-    continued_network = SimpleNN()
-    continued_optimizer = optim.SGD(continued_network.parameters(), lr=learning_rate,
-                                    momentum=momentum)
 
-    network_state_dict = torch.load("results/mnist_model.pth")
-    continued_network.load_state_dict(network_state_dict)
+    # Load the pre-trained model
+    model_path = 'results/mnist_model.pth'  # Update this path
+    network.load_state_dict(torch.load(model_path))
 
     optimizer_state_dict = torch.load("results/optimizer.pth")
-    continued_optimizer.load_state_dict(optimizer_state_dict)
+    optimizer.load_state_dict(optimizer_state_dict)
     for i in range(4, 9):
         test_counter.append(i * len(train_loader.dataset))
         train(i)

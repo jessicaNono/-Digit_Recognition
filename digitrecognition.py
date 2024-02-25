@@ -3,18 +3,27 @@ from tkinter import simpledialog
 import torch
 from torchvision import transforms
 from tkinter import Label
-from PIL import ImageTk
+from PIL  import ImageOps ,  ImageTk, Image
 import PIL.Image, PIL.ImageDraw
 from model import SimpleNN
 import torch.nn as nn
 import torch.optim as optim
+import torch.nn.functional as F
+
+learning_rate = 0.01
+momentum = 0.5
+log_interval = 10
 class DigitRecognizerApp:
     def __init__(self, master):
+
         self.master = master
         master.title("Digit Recognizer")
         self.image_preview_label = Label(master)
         self.image_preview_label.pack()
         self.model = SimpleNN()
+        self.optimizer = optim.SGD(self.model.parameters(), lr=learning_rate,
+                              momentum=momentum)
+
         self.model.load_state_dict(torch.load('results/mnist_model.pth'))
 
         self.canvas_width = 200
@@ -55,20 +64,22 @@ class DigitRecognizerApp:
         self.draw = PIL.ImageDraw.Draw(self.image)
 
     def predict_digit(self):
-        # Convert canvas content to an image for preview
-        img = self.image.resize((28, 28), PIL.Image.Resampling.LANCZOS)
+        # Convert canvas content to an image for preview and processing
+        img = self.image.resize((28, 28), Image.LANCZOS).convert('L')
+        img_inverted = PIL.ImageOps.invert(img)  # Invert colors to match MNIST
+        img_tensor = transforms.ToTensor()(img_inverted)
+        img_tensor = transforms.Normalize((0.1307,), (0.3081,))(img_tensor)
+        img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
 
-        # Update the image preview label
+        # Display image in GUI
         tk_image = ImageTk.PhotoImage(image=img)
         self.image_preview_label.configure(image=tk_image)
-        self.image_preview_label.image = tk_image  # Keep a reference to avoid garbage collection
+        self.image_preview_label.image = tk_image
 
-        # Convert image to tensor for prediction
-        img = transforms.ToTensor()(img)
-        img = img.view(1, 1, 28, 28)  # Reshape for CNN, change if your model expects flattened input
-
+        # Predict digit
         with torch.no_grad():
-            outputs = self.model(img)
+            self.model.eval()
+            outputs = self.model(img_tensor)
             _, self.predicted = torch.max(outputs, 1)
             print(f'Predicted Digit: {self.predicted.item()}')
 
@@ -76,26 +87,32 @@ class DigitRecognizerApp:
         if self.predicted is not None:  # Ensure there was a prediction
             correct_label = simpledialog.askinteger("Input", "What is the correct digit?", parent=self.master,
                                                     minvalue=0, maxvalue=9)
+            print(correct_label)
+            print(self.predicted.item())
             if correct_label is not None and correct_label != self.predicted.item():
-                # Prepare the image and label for training
-                img = self.image.resize((28, 28), PIL.Image.Resampling.LANCZOS)
-                img = transforms.ToTensor()(img)
-                img = img.view(1, 1, 28, 28)  # Reshape for conv layers, assuming your model is convolutional
+                # Convert canvas content to an image for correction
+                img = self.image.resize((28, 28), Image.LANCZOS).convert('L')
+                img_inverted = ImageOps.invert(img)  # Invert colors if necessary to match training data
+
+                # Convert image to tensor for correction
+                img_tensor = transforms.ToTensor()(img_inverted)
+                img_tensor = transforms.Normalize((0.1307,), (0.3081,))(img_tensor)
+                img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
+
                 correct_label_tensor = torch.tensor([correct_label], dtype=torch.long)
 
                 # Perform correction
                 self.model.train()  # Switch to training mode
                 self.optimizer.zero_grad()  # Clear previous gradients
-                outputs = self.model(img)
-                loss = self.criterion(outputs, correct_label_tensor)
+                outputs = self.model(img_tensor)
+                loss = F.nll_loss(outputs, correct_label_tensor)  # Ensure loss function is consistent with training
                 loss.backward()  # Backpropagate the error
                 self.optimizer.step()  # Adjust model parameters
                 self.model.eval()  # Switch back to evaluation mode
 
                 # Save the updated model
-                torch.save(self.model.state_dict(), 'mnist_model.pth')
+                torch.save(self.model.state_dict(), 'results/mnist_model.pth')
                 print(f"Model updated with correction: {correct_label}")
-
             else:
                 print("No correction needed or provided.")
         else:
