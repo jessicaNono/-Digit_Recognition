@@ -9,7 +9,8 @@ from model import SimpleNN
 import torch.nn as nn
 import torch.optim as optim
 import torch.nn.functional as F
-
+import numpy as np
+import os
 learning_rate = 0.01
 momentum = 0.5
 log_interval = 10
@@ -81,6 +82,60 @@ class DigitRecognizerApp:
             _, self.predicted = torch.max(outputs, 1)
             print(f'Predicted Digit: {self.predicted.item()}')
 
+    def predict_digit_multiple(self):
+        # Convert canvas content to a grayscale NumPy array
+        img = self.image.convert('L')
+        img_inverted = PIL.ImageOps.invert(img)  # Invert colors to match MNIST
+        img_array = np.array(img_inverted)
+
+        # Threshold to identify non-background (digit) columns
+        threshold = 10
+        non_bg_columns = np.where(img_array.max(axis=0) > threshold)[0]
+
+        if len(non_bg_columns) == 0:
+            print("No digit found in the image.")
+            return
+        segments_dir = 'segments'
+        os.makedirs(segments_dir, exist_ok=True)
+        # Find separators as gaps between consecutive non-background columns
+        separators = np.diff(non_bg_columns) > 1
+        sep_positions = non_bg_columns[:-1][separators] + 1
+
+        # Include start and end positions for slicing
+        seg_starts = np.insert(sep_positions, 0, 0)
+        seg_ends = np.append(sep_positions, non_bg_columns[-1] + 1)
+
+        predictions = []
+
+        for i, (start, end) in enumerate(zip(seg_starts, seg_ends)):
+            segment = img_array[:, start:end]
+            if segment.shape[1] == 0:  # Skip empty segments
+                continue
+
+            # Process each segment
+            segment_img = Image.fromarray(segment).resize((28, 28), Image.LANCZOS)
+            segment_img_path = os.path.join(segments_dir, f'segment_{i}.png')
+            segment_img.save(segment_img_path)
+            print(f"Saved segment {i}: {segment_img_path}")
+            img_tensor = transforms.ToTensor()(segment_img)
+            img_tensor = transforms.Normalize((0.1307,), (0.3081,))(img_tensor)
+            img_tensor = img_tensor.unsqueeze(0)  # Add batch dimension
+
+            # Predict digit for the segment
+            with torch.no_grad():
+                self.model.eval()
+                output = self.model(img_tensor)
+                _, predicted = torch.max(output, 1)
+                predictions.append(str(predicted.item()))
+
+        # Combine predictions into a single string
+        predicted_number = ''.join(predictions)
+        print(f'Predicted Number: {predicted_number}')
+
+        # Update GUI with original image resized for display
+        tk_image = ImageTk.PhotoImage(image=img.resize((28, 28), Image.LANCZOS))
+        self.image_preview_label.configure(image=tk_image)
+        self.image_preview_label.image = tk_image
 
 
 root = tk.Tk()
