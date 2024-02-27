@@ -114,12 +114,12 @@ def continueTrain():
 
     optimizer_state_dict = torch.load("results/optimizer.pth")
     optimizer.load_state_dict(optimizer_state_dict)
-    for i in range(4, 9):
+    for i in range(9, 40):
         test_counter.append(i * len(train_loader.dataset))
         train(i)
         test()
 
 
-firstTrain()
+#firstTrain()
 
 continueTrain()
